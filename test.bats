@@ -336,28 +336,6 @@ teardown() {
   echo "$output" | grep "$expected"
 }
 
-@test "it errors when with.username was not set" {
-  unset INPUT_USERNAME
-
-  run /entrypoint.sh
-
-  local expected="Unable to find the username. Did you set with.username?"
-  echo $output
-  [ "$status" -eq 1 ]
-  echo "$output" | grep "$expected"
-}
-
-@test "it errors when with.password was not set" {
-  unset INPUT_PASSWORD
-
-  run /entrypoint.sh
-
-  local expected="Unable to find the password. Did you set with.password?"
-  echo $output
-  [ "$status" -eq 1 ]
-  echo "$output" | grep "$expected"
-}
-
 @test "it errors when the working directory is configured but not present" {
   export INPUT_WORKDIR='mySubDir'
 

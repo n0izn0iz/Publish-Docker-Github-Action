@@ -5,8 +5,6 @@ function main() {
   echo "" # see https://github.com/actions/toolkit/issues/168
 
   sanitize "${INPUT_NAME}" "name"
-  sanitize "${INPUT_USERNAME}" "username"
-  sanitize "${INPUT_PASSWORD}" "password"
 
   REGISTRY_NO_PROTOCOL=$(echo "${INPUT_REGISTRY}" | sed -e 's/^https:\/\///g')
   if uses "${INPUT_REGISTRY}" && ! isPartOfTheName "${REGISTRY_NO_PROTOCOL}"; then
@@ -20,7 +18,10 @@ function main() {
     changeWorkingDirectory
   fi
 
-  echo ${INPUT_PASSWORD} | docker login -u ${INPUT_USERNAME} --password-stdin ${INPUT_REGISTRY}
+  if uses "${INPUT_USERNAME}"; then
+    sanitize "${INPUT_PASSWORD}" "password"
+    echo ${INPUT_PASSWORD} | docker login -u ${INPUT_USERNAME} --password-stdin ${INPUT_REGISTRY}
+  fi
 
   BUILDPARAMS=""
 
@@ -35,13 +36,15 @@ function main() {
   fi
 
   if uses "${INPUT_SNAPSHOT}"; then
-    pushWithSnapshot
+    withSnapshot
   else
-    pushWithoutSnapshot
+    withoutSnapshot
   fi
   echo ::set-output name=tag::"${TAG}"
 
-  docker logout
+  if uses "${INPUT_USERNAME}"; then
+    docker logout
+  fi
 }
 
 function sanitize() {
@@ -114,20 +117,24 @@ function uses() {
   [ ! -z "${1}" ]
 }
 
-function pushWithSnapshot() {
+function withSnapshot() {
   local TIMESTAMP=`date +%Y%m%d%H%M%S`
   local SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-6)
   local SNAPSHOT_TAG="${TIMESTAMP}${SHORT_SHA}"
   local SHA_DOCKER_NAME="${INPUT_NAME}:${SNAPSHOT_TAG}"
   docker build $BUILDPARAMS -t ${DOCKERNAME} -t ${SHA_DOCKER_NAME} .
-  docker push ${DOCKERNAME}
-  docker push ${SHA_DOCKER_NAME}
+  if uses "${INPUT_USERNAME}"; then
+    docker push ${DOCKERNAME}
+    docker push ${SHA_DOCKER_NAME}
+  fi
   echo ::set-output name=snapshot-tag::"${SNAPSHOT_TAG}"
 }
 
-function pushWithoutSnapshot() {
+function withoutSnapshot() {
   docker build $BUILDPARAMS -t ${DOCKERNAME} .
-  docker push ${DOCKERNAME}
+  if uses "${INPUT_USERNAME}"; then
+    docker push ${DOCKERNAME}
+  fi
 }
 
 main
